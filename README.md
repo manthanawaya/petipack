@@ -3,6 +3,8 @@
 > **A Multi-Warehouse E-Commerce Inventory & Billing System**  
 > *Built for speed, accuracy, and scale.*
 
+### 🌍 Live Demo: [https://petipack.vercel.app/](https://petipack.vercel.app/)
+
 ---
 
 ## 🚀 The Vision
