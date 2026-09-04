@@ -48,13 +48,11 @@ With a premium, modern user interface, PETIPACK reduces the cognitive load on sh
 
 ---
 
-## 🎯 Hackathon Demo Guide
-
-We built specific features to ensure our hackathon pitch goes flawlessly:
+Important Instructions:
 
 1. **The Admin Bypass**: When presenting the Admin dashboard, simply click the **Admin** tab on the login screen. It will auto-fill the demo credentials (`admin@petipack.com` / `admin123`). Just click login!
 2. **The "Demo Scan" Button**: Under the Barcode Scanner section, click the green **Demo Scan** button. This instantly simulates a successful camera scan (with audio feedback!) so you don't have to awkwardly hold a barcode up to your webcam on stage.
 3. **Persistent Mock Data**: Refreshing the page won't wipe your data. Our LocalStorage engine keeps your demo products intact during the presentation.
 
 ---
-*Built with ❤️ for the Hackathon!*
+*Built with ❤️ by manthan and harish
