@@ -38,9 +38,11 @@ export default function InventoryManager({ user, data, reload }) {
       return alert(`${locationCode} is already assigned to another product.`);
     }
 
+    const productId = editingId || 'TRK-' + Math.floor(100000 + Math.random() * 900000);
     const product = {
-      id: editingId || 'TRK-' + Math.floor(100000 + Math.random() * 900000),
+      id: productId,
       userId: user.id,
+      barcode: productId, // Auto-generate barcode to satisfy DB constraints
       name: name.trim(),
       price: parseFloat(price),
       quantity: parseInt(qty, 10),

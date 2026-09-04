@@ -166,7 +166,7 @@ export default function BarcodeScanner({ user, data, reload, onAddToCart }) {
 
       <div style={{ display: 'flex', gap: '8px', marginTop: '16px', flexWrap: 'wrap' }}>
         <button onClick={handleSimulateScan} style={{ background: 'var(--success)', width: '100%' }}>
-          <Scan size={16} /> Instant Demo Scan (Recommended for Pitch)
+          <Scan size={16} /> Instant Demo Scan
         </button>
       </div>
       
