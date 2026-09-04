@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { InventoryBackend } from '../../services/firebase';
+import { InventoryBackend } from '../../services/supabase';
 import { PlusCircle } from 'lucide-react';
 
 export default function InventoryManager({ user, data, reload }) {
@@ -51,7 +51,7 @@ export default function InventoryManager({ user, data, reload }) {
     };
 
     try {
-      await InventoryBackend.saveProduct(product);
+      const savedProduct = await InventoryBackend.saveProduct(product);
       
       const moveId = Date.now().toString() + Math.random().toString();
       await InventoryBackend.saveMovement({
@@ -59,10 +59,10 @@ export default function InventoryManager({ user, data, reload }) {
         userId: user.id,
         timestamp: new Date().toISOString(),
         type: 'inward',
-        productId: product.id,
-        productName: product.name,
-        quantity: product.quantity,
-        location: product.location,
+        productId: savedProduct.id,
+        productName: savedProduct.name,
+        quantity: savedProduct.quantity,
+        location: savedProduct.location,
         details: editingId ? 'Product updated' : 'New product added'
       });
       

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { InventoryBackend } from '../../services/firebase';
+import { InventoryBackend } from '../../services/supabase';
 import InventoryManager from './InventoryManager';
 import BarcodeScanner from './BarcodeScanner';
 import InventoryTable from './InventoryTable';

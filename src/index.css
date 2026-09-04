@@ -253,6 +253,12 @@ tr:hover td {
   border: 2px solid var(--success);
 }
 
+#camera-preview video {
+  width: 100% !important;
+  max-height: 300px;
+  object-fit: cover;
+}
+
 /* Printable Bill */
 @media print {
   body * {

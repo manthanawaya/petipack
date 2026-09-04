@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { InventoryBackend } from '../services/firebase';
+import { InventoryBackend } from '../services/supabase';
 import { LogIn, UserPlus, Shield, Package } from 'lucide-react';
 
 function Auth({ onLogin }) {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { InventoryBackend } from '../../services/firebase';
+import { InventoryBackend } from '../../services/supabase';
 import { LogOut, Activity, AlertTriangle, Users, Package } from 'lucide-react';
 
 export default function AdminDashboard({ user, onLogout }) {
