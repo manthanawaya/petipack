@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Commerce Inventory & Billing System</title>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --text: #0f172a;
+            --text-muted: #64748b;
+            --success: #16a34a;
+            --danger: #dc2626;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+        body { background-color: var(--bg); color: var(--text); padding: 20px; }
+        .container { max-width: 1100px; margin: 0 auto; }
+        
+        .card { background: var(--surface); padding: 24px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h1, h2, h3 { margin-bottom: 12px; }
+        
+        /* Auth & Navigation */
+        .nav-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid var(--border); }
+        .tab-btn { padding: 10px 20px; border: none; background: none; cursor: pointer; font-weight: 600; color: var(--text-muted); }
+        .tab-btn.active { color: var(--primary); border-bottom: 2px solid var(--primary); margin-bottom: -2px; }
+        .hidden { display: none !important; }
+        
+        /* Forms & Inputs */
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9rem; }
+        input, select { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 1rem; }
+        button { background: var(--primary); color: white; padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+        button:hover { background: var(--primary-dark); }
+        button.secondary { background: #64748b; }
+        button.secondary:hover { background: #475569; }
+        
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px; border: 1px solid var(--border); text-align: left; font-size: 0.95rem; }
+        th { background: #f1f5f9; font-weight: 600; }
+        
+        /* Layout Grids */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .badge { background: #e0e7ff; color: #3730a3; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; }
+        
+        /* Printable Bill Styles */
+        #printable-bill { display: none; }
+        .camera-preview { width: 100%; min-height: 180px; margin-top: 12px; border: 1px solid var(--border); border-radius: 6px; background: #0f172a; overflow: hidden; }
+        .camera-preview.scan-success { border: 3px solid var(--success); box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.2); }
+        .camera-preview video { width: 100% !important; max-height: 260px; object-fit: cover; }
+        .camera-controls { display: flex; gap: 8px; margin-top: 10px; }
+        .scan-result { margin-top: 10px; padding: 10px; border-radius: 6px; background: #f1f5f9; color: var(--text-muted); }
+        .scan-result.scan-success { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+        @media print {
+            body * { visibility: hidden; }
+            #printable-bill, #printable-bill * { visibility: visible; }
+            #printable-bill { display: block; position: absolute; left: 0; top: 0; width: 100%; padding: 20px; background: white; }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container no-print">
+    <div id="auth-section" class="card">
+        <h1>Multi-Warehouse Inventory & Billing Platform</h1>
+        <div class="nav-tabs">
+            <button class="tab-btn active" onclick="switchAuthTab('user-login', this)">Shopkeeper Login</button>
+            <button class="tab-btn" onclick="switchAuthTab('user-register', this)">Register Shopkeeper</button>
+            <button class="tab-btn" onclick="switchAuthTab('admin-login', this)">Admin Portal</button>
+        </div>
+
+        <form id="form-user-login" onsubmit="handleUserLogin(event)">
+            <h3>Shopkeeper Sign In</h3>
+            <div class="form-group"><label>Email</label><input type="email" id="login-email" required></div>
+            <div class="form-group"><label>Master Key</label><input type="password" id="login-masterkey" placeholder="Enter your Master Key" required></div>
+            <button type="submit">Login</button>
+        </form>
+
+        <form id="form-user-register" class="hidden" onsubmit="handleUserRegister(event)">
+            <h3>New Shopkeeper Registration</h3>
+            <div class="form-group"><label>Shop Name</label><input type="text" id="reg-shopname" required></div>
+            <div class="form-group"><label>Shop Address</label><input type="text" id="reg-address" required></div>
+            <div class="form-group"><label>Username</label><input type="text" id="reg-username" required></div>
+            <div class="form-group"><label>Email</label><input type="email" id="reg-email" required></div>
+            <button type="submit">Request & Generate Master Key</button>
+        </form>
+
+        <form id="form-admin-login" class="hidden" onsubmit="handleAdminLogin(event)">
+            <h3>System Administrator Login</h3>
+            <div class="form-group"><label>Admin Email</label><input type="email" id="admin-email" required></div>
+            <div class="form-group"><label>Admin Password</label><input type="password" id="admin-pass" required></div>
+            <button type="submit">Login as Admin</button>
+        </form>
+    </div>
+
+    <div id="shop-dashboard" class="hidden">
+        <div class="card" style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h2 id="dash-shop-name">Shop Name</h2>
+                <p id="dash-shop-addr" style="color: var(--text-muted);"></p>
+            </div>
+            <button onclick="logout()" class="secondary">Logout</button>
+        </div>
+
+        <div class="grid-2">
+            <div class="card">
+                <h3>Manual Inventory Entry</h3>
+                <form onsubmit="handleManualAddProduct(event)">
+                    <div class="form-group"><label>Product Name</label><input type="text" id="p-name" required></div>
+                    <div class="form-group"><label>Price (₹)</label><input type="number" step="0.01" min="0" id="p-price" required></div>
+                    <div class="form-group"><label>Quantity</label><input type="number" id="p-qty" required></div>
+                    <div class="form-group"><label>Warehouse</label><select id="p-warehouse"><option value="WH1">Warehouse WH1</option><option value="WH2">Warehouse WH2</option><option value="WH3">Warehouse WH3</option></select></div>
+                    <div class="grid-2" style="gap: 10px;">
+                        <div class="form-group"><label>Row</label><select id="p-row"><option value="">Auto-assign</option><option value="A">Row A</option><option value="B">Row B</option><option value="C">Row C</option><option value="D">Row D</option></select></div>
+                        <div class="form-group"><label>Bin</label><select id="p-bin"><option value="">Auto-assign</option><option value="1">Bin 01</option><option value="2">Bin 02</option><option value="3">Bin 03</option><option value="4">Bin 04</option><option value="5">Bin 05</option><option value="6">Bin 06</option><option value="7">Bin 07</option><option value="8">Bin 08</option><option value="9">Bin 09</option><option value="10">Bin 10</option><option value="11">Bin 11</option><option value="12">Bin 12</option><option value="13">Bin 13</option><option value="14">Bin 14</option><option value="15">Bin 15</option><option value="16">Bin 16</option><option value="17">Bin 17</option><option value="18">Bin 18</option><option value="19">Bin 19</option><option value="20">Bin 20</option></select></div>
+                    </div>
+                    <button type="submit" id="product-submit">Add to Inventory</button>
+                    <button type="button" id="cancel-edit" class="secondary hidden" onclick="cancelEdit()">Cancel Edit</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h3>Billing & Barcode Reader</h3>
+                <div class="form-group">
+                    <label>Scan Barcode / Enter UPC (e.g., 737628064502)</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="barcode-input" placeholder="Scan or type barcode...">
+                        <button onclick="scanBarcode()">Scan</button>
+                    </div>
+                    <small style="color: var(--text-muted);">Unregistered barcodes automatically fetch details online and stock your inventory.</small>
+                    <div id="camera-preview" class="camera-preview hidden"></div>
+                    <div class="camera-controls">
+                        <button type="button" id="camera-toggle" onclick="toggleCamera()">Open Camera</button>
+                        <button type="button" onclick="stopCamera()" class="secondary">Stop Camera</button>
+                    </div>
+                    <small id="camera-status" style="color: var(--text-muted); display: block; margin-top: 8px;">Camera preview is off.</small>
+                    <div id="scan-result" class="scan-result">No barcode scanned yet.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Order Intake: Find Item Locations</h3>
+            <p style="color: var(--text-muted); margin-bottom: 12px;">Enter one or more product names separated by commas to return the exact row and bin for each item.</p>
+            <div style="display: flex; gap: 8px;">
+                <input type="text" id="order-product-search" placeholder="e.g. Rice, Soap" oninput="renderOrderLocations()">
+                <button type="button" onclick="renderOrderLocations()">Find Locations</button>
+            </div>
+            <div id="order-location-results" style="margin-top: 15px;"></div>
+        </div>
+
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3>Current Inventory</h3>
+                <input type="text" id="search-inventory" placeholder="Search product name..." oninput="renderInventory()" style="width: 250px;">
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tracking ID</th>
+                        <th>Product Name</th>
+                        <th>Warehouse / Row / Bin</th>
+                        <th>Location Code</th>
+                        <th>Price</th>
+                        <th>Quantity</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="inventory-table-body"></tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <h3>Current Bill Items</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Location</th>
+                        <th>Price</th>
+                        <th>Qty</th>
+                        <th>Subtotal</th>
+                        <th>Adjust</th>
+                    </tr>
+                </thead>
+                <tbody id="cart-table-body"></tbody>
+            </table>
+            <div style="margin-top: 15px; text-align: right;">
+                <div class="form-group" style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <label for="bill-discount" style="margin: 0;">Discount (%)</label>
+                    <input type="number" id="bill-discount" min="0" max="100" step="0.01" value="0" oninput="renderCart()" style="width: 110px;">
+                </div>
+                <p>Discount: ₹<span id="cart-discount-amount">0.00</span></p>
+                <h3>Total: ₹<span id="cart-total">0.00</span></h3>
+                <button onclick="generateFinalBill()" style="margin-top: 10px;">Generate & Print Bill</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Stock Movement Audit Log</h3>
+            <table>
+                <thead>
+                    <tr><th>Date</th><th>Type</th><th>Product</th><th>Quantity</th><th>Location</th><th>Details</th></tr>
+                </thead>
+                <tbody id="movement-log-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="admin-dashboard" class="hidden">
+        <div class="card" style="display: flex; justify-content: space-between; align-items: center;">
+            <h2>System Administration Dashboard</h2>
+            <button onclick="logout()" class="secondary">Logout</button>
+        </div>
+        <div class="card">
+            <h3>Registered Shopkeepers & Inventory Overview</h3>
+            <div id="admin-shops-container"></div>
+        </div>
+        <div class="card">
+            <h3>Stock Overview by Row</h3>
+            <div id="admin-row-overview"></div>
+            <h3 style="margin-top: 20px;">Low-Stock Alerts</h3>
+            <div id="admin-low-stock-alerts"></div>
+        </div>
+    </div>
+</div>
+
+<div id="printable-bill">
+    <h2 id="bill-shop-name">Shop Name</h2>
+    <p id="bill-shop-address">Shop Address</p>
+    <hr style="margin: 15px 0;">
+    <h3>Invoice Receipt</h3>
+    <p>Date: <span id="bill-date"></span></p>
+    <table style="margin: 20px 0;">
+        <thead>
+            <tr>
+                <th>Product Name</th>
+                <th>Price</th>
+                <th>Qty</th>
+                <th>Total</th>
+            </tr>
+        </thead>
+        <tbody id="bill-items"></tbody>
+    </table>
+    <div style="text-align: right;">
+        <p>Discount (<span id="bill-discount-percent">0</span>%): ₹<span id="bill-discount-amount">0.00</span></p>
+        <h2>Grand Total: ₹<span id="bill-grand-total"></span></h2>
+    </div>
+    <div style="margin-top: 30px; text-align: center;" class="no-print">
+        <button onclick="window.print()">Print / Save as PDF</button>
+        <button onclick="closeBill()" class="secondary">Back to Dashboard</button>
+    </div>
+</div>
+
+<script type="module" src="firebase-backend.js">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";        
+        const firebaseConfig = {
+            apiKey: "AIzaSyCsX5B9Z_lemUA2UUETclQChxX_qZZ7yjI",
+            authDomain: "studio-9304267725-af7e0.firebaseapp.com",
+            projectId: "studio-9304267725-af7e0",
+            storageBucket: "studio-9304267725-af7e0.firebasestorage.app",
+            messagingSenderId: "778969377644",
+            appId: "1:778969377644:web:41d0dae6d01f4b5dbd2149"
+        };        
+        window.firebaseApp = initializeApp(firebaseConfig);
+</script>
+
+<script>
+    // System State Storage
+    let db = { users: [], products: [], movements: [] };
+    let currentUser = null;
+    let currentCart = [];
+    let html5QrCode = null;
+    let cameraRunning = false;
+    let lastScannedBarcode = '';
+    let editingProductId = null;
+    const LOW_STOCK_THRESHOLD = 10;
+
+    async function saveData() {
+        if (!currentUser || !window.InventoryBackend) return;
+        await Promise.all(db.products
+            .filter(product => product.userId === currentUser.id)
+            .map(product => window.InventoryBackend.saveProduct(product)));
+    }
+
+    // Helper: Master Key Generator
+    function generateMasterKey() {
+        return 'MK-' + Math.floor(100000 + Math.random() * 900000);
+    }
+
+    // Helper: Location Hierarchy (one warehouse -> row -> bin)
+    function locationFromCode(locationCode) {
+        const match = String(locationCode || '').match(/^(WH\d+)-R([A-D])-B(\d{1,2})$/i);
+        if (!match) return null;
+        return { warehouse: match[1].toUpperCase(), row: match[2].toUpperCase(), bin: Number(match[3]) };
+    }
+
+    function locationCode(location) {
+        return `${location.warehouse}-R${location.row}-B${String(location.bin).padStart(2, '0')}`;
+    }
+
+    function ensureProductLocation(product) {
+        const parsed = locationFromCode(product.location);
+        const location = {
+            warehouse: product.warehouse || (parsed && parsed.warehouse) || 'WH1',
+            row: product.row || (parsed && parsed.row) || 'A',
+            bin: Number(product.bin || (parsed && parsed.bin) || 1)
+        };
+        product.warehouse = location.warehouse;
+        product.row = location.row;
+        product.bin = location.bin;
+        product.location = locationCode(location);
+        return product;
+    }
+
+    function generateLocationDetails(warehouse = 'WH1') {
+        const usedLocations = new Set(db.products.map(product => ensureProductLocation(product).location));
+        for (const row of ['A', 'B', 'C', 'D']) {
+            for (let bin = 1; bin <= 20; bin++) {
+                const location = { warehouse, row, bin };
+                if (!usedLocations.has(locationCode(location))) return location;
+            }
+        }
+        return { warehouse, row: 'A', bin: 1 };
+    }
+
+    function formatLocation(product) {
+        ensureProductLocation(product);
+        return `${product.warehouse} / Row ${product.row} / Bin ${String(product.bin).padStart(2, '0')}`;
+    }
+
+    function logMovement(type, product, quantity, details, fromLocation, toLocation) {
+        const movement = {
+            id: Date.now() + Math.random(),
+            userId: product.userId,
+            timestamp: new Date().toISOString(),
+            type,
+            productId: product.id,
+            productName: product.name,
+            quantity,
+            location: product.location,
+            fromLocation: fromLocation || '',
+            toLocation: toLocation || '',
+            details: details || ''
+        };
+        db.movements.push(movement);
+        if (currentUser && window.InventoryBackend) window.InventoryBackend.saveMovement(movement).catch(console.error);
+    }
+
+    // Helper: Unique Tracking ID
+    function generateTrackingId() {
+        return 'TRK-' + Math.floor(100000 + Math.random() * 900000);
+    }
+
+    function formatCurrency(amount) {
+        return `₹${Number(amount).toFixed(2)}`;
+    }
+
+    // UI Tab Navigation
+    function switchAuthTab(tab, selectedButton) {
+        document.querySelectorAll('.nav-tabs .tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById('form-user-login').classList.add('hidden');
+        document.getElementById('form-user-register').classList.add('hidden');
+        document.getElementById('form-admin-login').classList.add('hidden');
+
+        const formByTab = {
+            'user-login': 'form-user-login',
+            'user-register': 'form-user-register',
+            'admin-login': 'form-admin-login'
+        };
+        const selectedForm = document.getElementById(formByTab[tab]);
+        if (!selectedForm) return;
+
+        selectedForm.classList.remove('hidden');
+        if (selectedButton) selectedButton.classList.add('active');
+    }
+
+    // Auth Logic
+    async function handleUserRegister(e) {
+        e.preventDefault();
+        const username = document.getElementById('reg-username').value;
+        const masterKey = generateMasterKey();
+        const email = document.getElementById('reg-email').value.trim();
+        try {
+            await window.inventoryBackendReady;
+            currentUser = await window.InventoryBackend.register({
+                email,
+                masterKey,
+                username,
+                shopName: document.getElementById('reg-shopname').value,
+                address: document.getElementById('reg-address').value
+            });
+            alert(`Account Registered Successfully!\nYour Master Key is: ${masterKey}\nPlease keep it safe for logging in.`);
+            document.getElementById('form-user-register').reset();
+            switchAuthTab('user-login', document.querySelector('.nav-tabs .tab-btn'));
+        } catch (error) {
+            alert(error.message || 'Registration failed.');
+        }
+    }
+
+    async function handleUserLogin(e) {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value.trim();
+        const key = document.getElementById('login-masterkey').value;
+        try {
+            await window.inventoryBackendReady;
+            currentUser = await window.InventoryBackend.login(email, key);
+            if (currentUser.isAdmin) return loadAdminDashboard();
+            await loadShopDashboard();
+        } catch (error) {
+            alert('Invalid email or master key.');
+        }
+    }
+
+    async function handleAdminLogin(e) {
+        e.preventDefault();
+        const email = document.getElementById('admin-email').value.trim();
+        const pass = document.getElementById('admin-pass').value;
+        try {
+            await window.inventoryBackendReady;
+            currentUser = await window.InventoryBackend.login(email, pass);
+            if (!currentUser.isAdmin) throw new Error('Admin role required.');
+            await loadAdminDashboard();
+        } catch (error) {
+            alert('Invalid admin credentials or admin role is not assigned.');
+        }
+    }
+
+    async function logout() {
+        stopCamera();
+        if (window.InventoryBackend) await window.InventoryBackend.logout();
+        editingProductId = null;
+        currentUser = null;
+        currentCart = [];
+        document.getElementById('shop-dashboard').classList.add('hidden');
+        document.getElementById('admin-dashboard').classList.add('hidden');
+        document.getElementById('auth-section').classList.remove('hidden');
+    }
+
+    // Shopkeeper Dashboard Operations
+    async function loadShopDashboard() {
+        db = await window.InventoryBackend.loadData(currentUser, false);
+        document.getElementById('auth-section').classList.add('hidden');
+        document.getElementById('shop-dashboard').classList.remove('hidden');
+        document.getElementById('dash-shop-name').innerText = currentUser.shopName;
+        document.getElementById('dash-shop-addr').innerText = currentUser.address;
+        renderInventory();
+        renderCart();
+        renderOrderLocations();
+        renderMovementLog();
+    }
+
+    function handleManualAddProduct(e) {
+        e.preventDefault();
+        const selectedWarehouse = document.getElementById('p-warehouse').value;
+        const selectedRow = document.getElementById('p-row').value;
+        const selectedBin = document.getElementById('p-bin').value;
+        if ((selectedRow && !selectedBin) || (!selectedRow && selectedBin)) {
+            alert('Select both a row and a bin, or leave both set to Auto-assign.');
+            return;
+        }
+
+        const location = selectedRow && selectedBin
+            ? { warehouse: selectedWarehouse, row: selectedRow, bin: Number(selectedBin) }
+            : generateLocationDetails(selectedWarehouse);
+        const requestedLocation = locationCode(location);
+        if (db.products.some(product => product.id !== editingProductId && ensureProductLocation(product).location === requestedLocation)) {
+            alert(`${requestedLocation} is already assigned to another product. Choose a different bin.`);
+            return;
+        }
+
+        const name = document.getElementById('p-name').value.trim();
+        const price = parseFloat(document.getElementById('p-price').value);
+        const quantity = parseInt(document.getElementById('p-qty').value);
+        if (!name || !Number.isFinite(price) || price < 0 || !Number.isInteger(quantity) || quantity < 0) {
+            alert('Enter a product name, a valid non-negative price, and a whole-number quantity.');
+            return;
+        }
+
+        if (editingProductId) {
+            const product = db.products.find(item => item.id === editingProductId && item.userId === currentUser.id);
+            if (!product) {
+                cancelEdit();
+                return;
+            }
+            const previousQuantity = product.quantity;
+            const previousLocation = product.location;
+            product.name = name;
+            product.price = price;
+            product.quantity = quantity;
+            product.warehouse = location.warehouse;
+            product.row = location.row;
+            product.bin = location.bin;
+            product.location = requestedLocation;
+            if (previousLocation !== product.location) {
+                logMovement('transfer', product, product.quantity, 'Product location changed during edit.', previousLocation, product.location);
+            }
+            if (quantity > previousQuantity) logMovement('inward', product, quantity - previousQuantity, 'Quantity increased during product edit.');
+            if (quantity < previousQuantity) logMovement('outward', product, previousQuantity - quantity, 'Quantity reduced during product edit.');
+            saveData();
+            updateCartProduct(product);
+            renderInventory();
+            renderMovementLog();
+            e.target.reset();
+            cancelEdit();
+            return;
+        }
+
+        const product = {
+            id: generateTrackingId(),
+            userId: currentUser.id,
+            name,
+            price,
+            quantity,
+            warehouse: location.warehouse,
+            row: location.row,
+            bin: location.bin,
+            location: locationCode(location)
+        };
+        db.products.push(product);
+        logMovement('inward', product, product.quantity, 'New product added to inventory.');
+        saveData();
+        renderInventory();
+        renderMovementLog();
+        e.target.reset();
+    }
+
+    function updateCartProduct(product) {
+        const cartItem = currentCart.find(item => item.id === product.id);
+        if (!cartItem) return;
+        cartItem.name = product.name;
+        cartItem.price = product.price;
+        if (cartItem.qty > product.quantity) cartItem.qty = product.quantity;
+        if (cartItem.qty === 0) currentCart = currentCart.filter(item => item.id !== product.id);
+        renderCart();
+    }
+
+    function renderInventory() {
+        const tbody = document.getElementById('inventory-table-body');
+        const query = document.getElementById('search-inventory').value.toLowerCase();
+        tbody.innerHTML = '';
+
+        const userProducts = db.products.filter(p => p.userId === currentUser.id && p.name.toLowerCase().includes(query));
+
+        userProducts.forEach(p => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><code>${p.id}</code></td>
+                <td>${p.name}${p.brand ? `<br><small style="color: var(--text-muted);">${p.brand}</small>` : ''}</td>
+                <td>${formatLocation(p)}</td>
+                <td><span class="badge">${p.location}</span></td>
+                <td>${formatCurrency(p.price)}</td>
+                <td>${p.quantity}</td>
+                <td>
+                    <button onclick="addToCart('${p.id}')">Add to Cart</button>
+                    <button onclick="editProduct('${p.id}')" class="secondary">Edit</button>
+                    <button onclick="transferProduct('${p.id}')" class="secondary">Transfer</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function editProduct(productId) {
+        const product = db.products.find(p => p.id === productId && p.userId === currentUser.id);
+        if (!product) return;
+        ensureProductLocation(product);
+        editingProductId = product.id;
+        document.getElementById('p-name').value = product.name;
+        document.getElementById('p-price').value = product.price;
+        document.getElementById('p-qty').value = product.quantity;
+        document.getElementById('p-warehouse').value = product.warehouse;
+        document.getElementById('p-row').value = product.row;
+        document.getElementById('p-bin').value = String(product.bin);
+        document.getElementById('product-submit').innerText = 'Update Product';
+        document.getElementById('cancel-edit').classList.remove('hidden');
+        document.getElementById('p-name').focus();
+        document.getElementById('p-name').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function cancelEdit() {
+        editingProductId = null;
+        document.getElementById('product-submit').innerText = 'Add to Inventory';
+        document.getElementById('cancel-edit').classList.add('hidden');
+        document.querySelector('#shop-dashboard form').reset();
+    }
+
+    function transferProduct(productId) {
+        const product = db.products.find(p => p.id === productId && p.userId === currentUser.id);
+        if (!product) return;
+
+        const warehouse = prompt('Destination warehouse (WH1, WH2, or WH3):', product.warehouse);
+        if (warehouse === null) return;
+        const row = prompt('Destination row (A, B, C, or D):', product.row);
+        if (row === null) return;
+        const binInput = prompt('Destination bin (1-20):', product.bin);
+        if (binInput === null) return;
+
+        const destination = { warehouse: warehouse.trim().toUpperCase(), row: row.trim().toUpperCase(), bin: Number(binInput) };
+        if (!['WH1', 'WH2', 'WH3'].includes(destination.warehouse) || !['A', 'B', 'C', 'D'].includes(destination.row) || !Number.isInteger(destination.bin) || destination.bin < 1 || destination.bin > 20) {
+            alert('Choose a warehouse from WH1 to WH3, a row from A to D, and a whole-number bin from 1 to 20.');
+            return;
+        }
+
+        const previousLocation = product.location;
+        product.warehouse = destination.warehouse;
+        product.row = destination.row;
+        product.bin = destination.bin;
+        product.location = locationCode(destination);
+        logMovement('transfer', product, product.quantity, 'Product moved to a new bin.', previousLocation, product.location);
+        saveData();
+        renderInventory();
+        renderMovementLog();
+        renderOrderLocations();
+    }
+
+    function renderOrderLocations() {
+        const results = document.getElementById('order-location-results');
+        if (!results || !currentUser) return;
+        const search = document.getElementById('order-product-search').value.trim().toLowerCase();
+        if (!search) {
+            results.innerHTML = '<p style="color: var(--text-muted);">Start typing a product name to see its exact location and quantity.</p>';
+            return;
+        }
+
+        const terms = search.split(',').map(term => term.trim()).filter(Boolean);
+        const rows = terms.map(term => {
+            const matches = db.products.filter(product => product.userId === currentUser.id && product.name.toLowerCase().includes(term));
+            if (matches.length === 0) return `<tr><td>${term}</td><td colspan="3">Product not found</td></tr>`;
+            return matches.map(product => `<tr><td>${product.name}</td><td>${formatLocation(product)}</td><td><span class="badge">${product.location}</span></td><td>${product.quantity}</td></tr>`).join('');
+        }).join('');
+
+        results.innerHTML = `<table><thead><tr><th>Product</th><th>Warehouse / Row / Bin</th><th>Location Code</th><th>Quantity</th></tr></thead><tbody>${rows}</tbody></table>`;
+    }
+
+    async function toggleCamera() {
+        if (cameraRunning) {
+            await stopCamera();
+        } else {
+            await startCamera();
+        }
+    }
+
+    async function startCamera() {
+        const preview = document.getElementById('camera-preview');
+        const status = document.getElementById('camera-status');
+        const toggle = document.getElementById('camera-toggle');
+        if (!window.Html5Qrcode) {
+            status.innerText = 'Camera scanner library is unavailable. Use manual barcode entry.';
+            return;
+        }
+
+        await stopCamera();
+        html5QrCode = new Html5Qrcode('camera-preview');
+        preview.classList.remove('hidden');
+        status.innerText = 'Camera preview active. Point it at a UPC, EAN, ISBN, or QR code.';
+        toggle.innerText = 'Close Camera';
+
+        try {
+            await html5QrCode.start(
+                { facingMode: 'environment' },
+                { fps: 10, qrbox: { width: 250, height: 150 }, aspectRatio: 1.777778 },
+                decodedText => handleBarcodeCapture(decodedText),
+                () => { }
+            );
+            cameraRunning = true;
+        } catch (error) {
+            status.innerText = 'Camera permission was denied or no camera is available.';
+            preview.classList.add('hidden');
+            toggle.innerText = 'Open Camera';
+            html5QrCode = null;
+        }
+    }
+
+    async function stopCamera() {
+        const preview = document.getElementById('camera-preview');
+        const status = document.getElementById('camera-status');
+        const toggle = document.getElementById('camera-toggle');
+        if (html5QrCode && cameraRunning) {
+            try { await html5QrCode.stop(); } catch (error) { console.warn('Camera stop failed:', error); }
+            html5QrCode.clear();
+        }
+        html5QrCode = null;
+        cameraRunning = false;
+        if (preview) preview.classList.add('hidden');
+        if (toggle) toggle.innerText = 'Open Camera';
+        if (status) status.innerText = 'Camera preview is off.';
+    }
+
+    function handleBarcodeCapture(rawValue) {
+        const barcode = String(rawValue || '').trim().replace(/[\s-]/g, '');
+        if (!barcode || barcode === lastScannedBarcode) return;
+        lastScannedBarcode = barcode;
+        document.getElementById('barcode-input').value = barcode;
+        document.getElementById('camera-preview').classList.add('scan-success');
+        document.getElementById('camera-status').innerText = `Barcode detected: ${barcode}`;
+        const result = document.getElementById('scan-result');
+        result.innerText = `Barcode detected: ${barcode}. Looking up...`;
+        result.classList.add('scan-success');
+        playScanBeep();
+        stopCamera().then(() => scanBarcode()).finally(() => {
+            setTimeout(() => {
+                lastScannedBarcode = '';
+                document.getElementById('camera-preview').classList.remove('scan-success');
+                result.classList.remove('scan-success');
+            }, 1200);
+        });
+    }
+
+    function playScanBeep() {
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            oscillator.frequency.value = 880;
+            gain.gain.setValueAtTime(0.15, audioContext.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.15);
+            oscillator.connect(gain);
+            gain.connect(audioContext.destination);
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.15);
+        } catch (error) {
+            console.warn('Scan beep unavailable:', error);
+        }
+    }
+
+    function setScanResult(message) {
+        const result = document.getElementById('scan-result');
+        if (result) result.innerText = message;
+    }
+
+    function findLocalBarcode(barcode) {
+        return db.products.find(product => product.userId === currentUser.id && String(product.barcode || '') === barcode);
+    }
+
+    async function lookupBarcodeOnline(barcode) {
+        try {
+            const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json`, {
+                headers: { Accept: 'application/json' }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                const product = data.product;
+                const title = product && (product.product_name_en || product.product_name);
+                if (data.status === 1 && title) {
+                    return { title, brand: product.brands || 'Unknown brand', source: 'Open Food Facts' };
+                }
+            }
+        } catch (error) {
+            console.warn('Open Food Facts lookup failed:', error);
+        }
+
+        try {
+            const response = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${encodeURIComponent(barcode)}&format=json&jscmd=data`, {
+                headers: { Accept: 'application/json' }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                const book = data[`ISBN:${barcode}`];
+                if (book && book.title) {
+                    const author = book.authors && book.authors.length ? book.authors[0].name : 'Unknown author';
+                    return { title: book.title, brand: author, source: 'Open Library' };
+                }
+            }
+        } catch (error) {
+            console.warn('Open Library lookup failed:', error);
+        }
+        return null;
+    }
+
+    // Barcode lookup: local storage -> Open Food Facts -> Open Library -> user prompt.
+    async function scanBarcode() {
+        const input = document.getElementById('barcode-input');
+        const barcode = input.value.trim().replace(/[\s-]/g, '');
+        if (!barcode) return alert('Please enter a barcode.');
+        input.value = barcode;
+
+        const existing = findLocalBarcode(barcode);
+
+        if (existing) {
+            addToCart(existing.id);
+            setScanResult(`Found locally: ${existing.name}${existing.brand ? ` (${existing.brand})` : ''} | ${formatLocation(existing)} | Qty: ${existing.quantity}`);
+            input.value = '';
+            return;
+        }
+
+        setScanResult(`Looking up barcode ${barcode}...`);
+        const onlineProduct = await lookupBarcodeOnline(barcode);
+        const manualName = onlineProduct ? null : prompt(`No online record found for ${barcode}. Enter the item name:`);
+        if (!onlineProduct && !manualName) {
+            setScanResult('Scan cancelled. Enter a name or scan another barcode.');
+            input.value = '';
+            return;
+        }
+
+        const productName = onlineProduct ? onlineProduct.title : manualName.trim();
+        const brand = onlineProduct ? onlineProduct.brand : 'Manual entry';
+
+        const selectedWarehouse = document.getElementById('p-warehouse')?.value || 'WH1';
+        const location = generateLocationDetails(selectedWarehouse);
+        const newProduct = {
+            id: generateTrackingId(),
+            userId: currentUser.id,
+            barcode,
+            name: productName,
+            brand,
+            price: 10.00,
+            quantity: 50,
+            warehouse: location.warehouse,
+            row: location.row,
+            bin: location.bin,
+            location: locationCode(location)
+        };
+
+        db.products.push(newProduct);
+        logMovement('inward', newProduct, newProduct.quantity, 'Product added through barcode scan.');
+        saveData();
+        renderInventory();
+        renderMovementLog();
+        addToCart(newProduct.id);
+        setScanResult(`Added: ${productName} | Brand/author: ${brand} | ${formatLocation(newProduct)} | Qty: ${newProduct.quantity}`);
+        alert(`Product identified and added:\n${productName}\nBrand/author: ${brand}`);
+        input.value = '';
+    }
+
+    // Billing Logic
+    function addToCart(productId) {
+        const product = db.products.find(p => p.id === productId);
+        if (!product || product.quantity <= 0) {
+            alert('Item out of stock!');
+            return;
+        }
+
+        const cartItem = currentCart.find(item => item.id === productId);
+        if (cartItem) {
+            if (cartItem.qty + 1 > product.quantity) return alert('Insufficient stock!');
+            cartItem.qty++;
+        } else {
+            currentCart.push({ id: product.id, name: product.name, price: product.price, qty: 1 });
+        }
+        renderCart();
+    }
+
+    function renderCart() {
+        const tbody = document.getElementById('cart-table-body');
+        tbody.innerHTML = '';
+        let subtotalTotal = 0;
+
+        currentCart.forEach(item => {
+            const subtotal = item.price * item.qty;
+            subtotalTotal += subtotal;
+            const tr = document.createElement('tr');
+            const product = db.products.find(product => product.id === item.id);
+            tr.innerHTML = `
+                <td>${item.name}</td>
+                <td>${product ? formatLocation(product) : 'Unavailable'}</td>
+                <td>${formatCurrency(item.price)}</td>
+                <td>${item.qty}</td>
+                <td>${formatCurrency(subtotal)}</td>
+                <td>
+                    <button type="button" onclick="decreaseCartItem('${item.id}')" class="secondary" aria-label="Decrease quantity">−</button>
+                    <button type="button" onclick="increaseCartItem('${item.id}')" aria-label="Increase quantity">+</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        const discountPercent = readDiscountPercentage() || 0;
+        const discountAmount = subtotalTotal * discountPercent / 100;
+        document.getElementById('cart-discount-amount').innerText = discountAmount.toFixed(2);
+        document.getElementById('cart-total').innerText = (subtotalTotal - discountAmount).toFixed(2);
+    }
+
+    function readDiscountPercentage() {
+        const value = Number(document.getElementById('bill-discount').value);
+        if (!Number.isFinite(value) || value < 0 || value > 100) return null;
+        return value;
+    }
+
+    function increaseCartItem(productId) {
+        addToCart(productId);
+    }
+
+    function decreaseCartItem(productId) {
+        const cartItem = currentCart.find(item => item.id === productId);
+        if (!cartItem) return;
+        cartItem.qty--;
+        if (cartItem.qty <= 0) currentCart = currentCart.filter(item => item.id !== productId);
+        renderCart();
+    }
+
+    function renderMovementLog() {
+        const tbody = document.getElementById('movement-log-body');
+        if (!tbody || !currentUser) return;
+        const movements = db.movements.filter(movement => movement.userId === currentUser.id).slice().reverse();
+        tbody.innerHTML = movements.length ? movements.map(movement => `
+            <tr>
+                <td>${movement.timestamp && typeof movement.timestamp.toDate === 'function' ? movement.timestamp.toDate().toLocaleString() : new Date(movement.timestamp).toLocaleString()}</td>
+                <td><span class="badge">${movement.type}</span></td>
+                <td>${movement.productName}</td>
+                <td>${movement.quantity}</td>
+                <td>${movement.type === 'transfer' ? `${movement.fromLocation} → ${movement.toLocation}` : movement.location}</td>
+                <td>${movement.details}</td>
+            </tr>
+        `).join('') : '<tr><td colspan="6">No stock movements recorded yet.</td></tr>';
+    }
+
+    async function generateFinalBill() {
+        if (currentCart.length === 0) return alert('Cart is empty!');
+        const discountPercent = readDiscountPercentage();
+        if (discountPercent === null) return alert('Enter a discount between 0% and 100%.');
+
+        const subtotalTotal = currentCart.reduce((sum, item) => sum + item.price * item.qty, 0);
+        const discountAmount = subtotalTotal * discountPercent / 100;
+        const finalTotal = subtotalTotal - discountAmount;
+
+        try {
+            const sale = await window.InventoryBackend.completeSale(currentCart, discountPercent);
+            sale.products.forEach(updated => {
+                const product = db.products.find(item => item.id === updated.id);
+                if (product) product.quantity = updated.quantity;
+            });
+            db = await window.InventoryBackend.loadData(currentUser, false);
+        } catch (error) {
+            alert(error.message || 'The sale could not be completed. Stock was not changed.');
+            return;
+        }
+        renderInventory();
+        renderMovementLog();
+
+        // Populate Printable Bill
+        document.getElementById('bill-shop-name').innerText = currentUser.shopName;
+        document.getElementById('bill-shop-address').innerText = currentUser.address;
+        document.getElementById('bill-date').innerText = new Date().toLocaleString();
+
+        const tbody = document.getElementById('bill-items');
+        tbody.innerHTML = '';
+        currentCart.forEach(item => {
+            const subtotal = item.price * item.qty;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${item.name}</td>
+                <td>${formatCurrency(item.price)}</td>
+                <td>${item.qty}</td>
+                <td>${formatCurrency(subtotal)}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        document.getElementById('bill-discount-percent').innerText = discountPercent.toFixed(2).replace(/\.00$/, '');
+        document.getElementById('bill-discount-amount').innerText = discountAmount.toFixed(2);
+        document.getElementById('bill-grand-total').innerText = finalTotal.toFixed(2);
+        document.getElementById('shop-dashboard').classList.add('hidden');
+        document.getElementById('printable-bill').style.display = 'block';
+    }
+
+    function closeBill() {
+        currentCart = [];
+        document.getElementById('bill-discount').value = '0';
+        renderCart();
+        document.getElementById('printable-bill').style.display = 'none';
+        document.getElementById('shop-dashboard').classList.remove('hidden');
+    }
+
+    // Admin Dashboard Logic
+    async function loadAdminDashboard() {
+        db = await window.InventoryBackend.loadData(currentUser, true);
+        document.getElementById('auth-section').classList.add('hidden');
+        document.getElementById('admin-dashboard').classList.remove('hidden');
+
+        const container = document.getElementById('admin-shops-container');
+        container.innerHTML = '';
+
+        if (db.users.length === 0) {
+            container.innerHTML = '<p>No registered shopkeepers found.</p>';
+            return;
+        }
+
+        db.users.forEach(shopkeeper => {
+            const shopProducts = db.products.filter(p => p.userId === shopkeeper.id);
+            const shopDiv = document.createElement('div');
+            shopDiv.className = 'card';
+            shopDiv.style.background = '#f8fafc';
+
+            let itemsHtml = shopProducts.map(p => `
+                <tr>
+                    <td><code>${p.id}</code></td>
+                    <td>${p.name}${p.brand ? `<br><small style="color: var(--text-muted);">${p.brand}</small>` : ''}</td>
+                    <td>${formatLocation(p)}</td>
+                    <td><span class="badge">${p.location}</span></td>
+                    <td>${formatCurrency(p.price)}</td>
+                    <td>${p.quantity}</td>
+                </tr>
+            `).join('');
+
+            shopDiv.innerHTML = `
+                <h4>${shopkeeper.shopName} (Owner: ${shopkeeper.username})</h4>
+                <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 10px;">
+                    Address: ${shopkeeper.address} | Email: <strong>${shopkeeper.email}</strong>
+                </p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tracking ID</th>
+                            <th>Product</th>
+                            <th>Warehouse / Row / Bin</th>
+                            <th>Bin Location</th>
+                            <th>Price</th>
+                            <th>Stock</th>
+                        </tr>
+                    </thead>
+                    <tbody>${itemsHtml || '<tr><td colspan="6">No products added yet.</td></tr>'}</tbody>
+                </table>
+            `;
+            container.appendChild(shopDiv);
+        });
+
+        renderAdminAnalytics();
+    }
+
+    function renderAdminAnalytics() {
+        const rowContainer = document.getElementById('admin-row-overview');
+        const alertContainer = document.getElementById('admin-low-stock-alerts');
+        const rowStats = {};
+
+        db.products.forEach(product => {
+            ensureProductLocation(product);
+            const rowKey = `${product.warehouse} / Row ${product.row}`;
+            if (!rowStats[rowKey]) rowStats[rowKey] = { products: 0, quantity: 0 };
+            rowStats[rowKey].products++;
+            rowStats[rowKey].quantity += product.quantity;
+        });
+
+        const rowEntries = Object.entries(rowStats).sort((first, second) => first[0].localeCompare(second[0]));
+        rowContainer.innerHTML = rowEntries.length ? `
+            <table>
+                <thead><tr><th>Row</th><th>Product Types</th><th>Total Units</th></tr></thead>
+                <tbody>${rowEntries.map(([row, stats]) => `<tr><td>${row}</td><td>${stats.products}</td><td>${stats.quantity}</td></tr>`).join('')}</tbody>
+            </table>
+        ` : '<p>No stock has been added yet.</p>';
+
+        const lowStockProducts = db.products.filter(product => product.quantity <= LOW_STOCK_THRESHOLD);
+        alertContainer.innerHTML = lowStockProducts.length ? `
+            <table>
+                <thead><tr><th>Shopkeeper</th><th>Product</th><th>Location</th><th>Quantity</th></tr></thead>
+                <tbody>${lowStockProducts.map(product => {
+                    const owner = db.users.find(user => user.id === product.userId);
+                    return `<tr><td>${owner ? owner.shopName : 'Unknown'}</td><td>${product.name}</td><td>${formatLocation(product)}</td><td>${product.quantity}</td></tr>`;
+                }).join('')}</tbody>
+            </table>
+        ` : '<p>No low-stock products. All quantities are above the alert threshold.</p>';
+    }
+</script>
+
+</body>
+</html>
