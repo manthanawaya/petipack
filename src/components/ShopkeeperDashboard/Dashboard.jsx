@@ -82,6 +82,17 @@ export default function Dashboard({ user, onLogout }) {
     }
   };
 
+  const handleDeleteProduct = async (productId) => {
+    if (window.confirm('Are you sure you want to delete this product?')) {
+      try {
+        await InventoryBackend.deleteProduct(productId);
+        await loadData();
+      } catch (err) {
+        alert(err.message || 'Error deleting product');
+      }
+    }
+  };
+
   if (showBill) {
     return <PrintableBill billData={billData} onClose={() => setShowBill(false)} />;
   }
@@ -134,7 +145,7 @@ export default function Dashboard({ user, onLogout }) {
       </div>
 
       <div className="delay-3 animate-fade-in" style={{ marginBottom: '24px' }}>
-        <InventoryTable products={data.products} onAddToCart={addToCart} reload={loadData} onEdit={(p) => setProductToEdit(p)} />
+        <InventoryTable products={data.products} onAddToCart={addToCart} reload={loadData} onEdit={(p) => setProductToEdit(p)} onDelete={handleDeleteProduct} />
       </div>
 
       <div className="delay-3 animate-fade-in">

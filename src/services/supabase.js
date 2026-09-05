@@ -210,6 +210,23 @@ class InventoryBackendService {
     
     return { products: updatedProducts };
   }
+
+  async deleteProduct(productId) {
+    const { data: product } = await supabase.from('products').select('*').eq('id', productId).single();
+    if (product) {
+      await supabase.from('movements').insert([{
+        user_id: product.user_id,
+        type: 'outward',
+        product_id: product.id,
+        product_name: product.name,
+        quantity: product.quantity,
+        location: product.location,
+        details: 'Product deleted'
+      }]);
+    }
+    const { error } = await supabase.from('products').delete().eq('id', productId);
+    if (error) throw new Error(error.message);
+  }
 }
 
 export const InventoryBackend = new InventoryBackendService();
