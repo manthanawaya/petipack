@@ -6,13 +6,16 @@ import InventoryTable from './InventoryTable';
 import BillingCart from './BillingCart';
 import OrderLocations from './OrderLocations';
 import PrintableBill from '../PrintableBill';
-import { LogOut, Package } from 'lucide-react';
+import { LogOut, Package, ShoppingCart, Box } from 'lucide-react';
 
 export default function Dashboard({ user, onLogout }) {
   const [data, setData] = useState({ products: [], movements: [] });
   const [cart, setCart] = useState([]);
   const [showBill, setShowBill] = useState(false);
   const [billData, setBillData] = useState(null);
+  
+  const [activeTab, setActiveTab] = useState('bill');
+  const [productToEdit, setProductToEdit] = useState(null);
 
   const loadData = async () => {
     const freshData = await InventoryBackend.loadData(user, false);
@@ -85,7 +88,7 @@ export default function Dashboard({ user, onLogout }) {
   }
 
   return (
-    <div className="container animate-fade-in" style={{ paddingBottom: '60px' }}>
+    <div className="container animate-fade-in" style={{ paddingBottom: '80px' }}>
       <div className="flex-between glass-card" style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
           <div className="logo-text" style={{ fontSize: '1.8rem', margin: 0 }}>
@@ -101,40 +104,62 @@ export default function Dashboard({ user, onLogout }) {
         </button>
       </div>
 
-      <div className="grid-2 delay-1 animate-fade-in">
-        <InventoryManager user={user} data={data} reload={loadData} />
-        <BarcodeScanner user={user} data={data} reload={loadData} onAddToCart={addToCart} />
-      </div>
-
-      <div className="grid-2 delay-2 animate-fade-in" style={{ marginTop: '24px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <OrderLocations products={data.products} />
-          <InventoryTable products={data.products} onAddToCart={addToCart} reload={loadData} />
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <BillingCart cart={cart} updateCartQty={updateCartQty} onGenerate={handleGenerateBill} />
-          <div className="glass-card">
-            <h3><Package size={20} style={{ verticalAlign: 'middle', marginRight: '8px' }}/> Audit Log</h3>
-            <div className="table-container" style={{ maxHeight: '300px', overflowY: 'auto' }}>
-              <table>
-                <thead>
-                  <tr><th>Date</th><th>Type</th><th>Product</th><th>Qty</th></tr>
-                </thead>
-                <tbody>
-                  {data.movements.slice().sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)).map(m => (
-                    <tr key={m.id}>
-                      <td>{new Date(m.timestamp).toLocaleDateString()}</td>
-                      <td><span className={`badge ${m.type === 'outward' ? 'danger' : ''}`}>{m.type}</span></td>
-                      <td>{m.productName}</td>
-                      <td>{m.quantity}</td>
-                    </tr>
-                  ))}
-                  {data.movements.length === 0 && <tr><td colSpan="4">No movements recorded.</td></tr>}
-                </tbody>
-              </table>
+      {activeTab === 'inventory' ? (
+        <div className="delay-1 animate-fade-in">
+          <div className="grid-2" style={{ marginBottom: '24px' }}>
+            <InventoryManager user={user} data={data} reload={loadData} productToEdit={productToEdit} onEditComplete={() => setProductToEdit(null)} />
+            <OrderLocations products={data.products} />
+          </div>
+          <div className="grid-2">
+            <InventoryTable products={data.products} onAddToCart={addToCart} reload={loadData} onEdit={(p) => setProductToEdit(p)} />
+            <div className="glass-card">
+              <h3><Package size={20} style={{ verticalAlign: 'middle', marginRight: '8px' }}/> Audit Log</h3>
+              <div className="table-container" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                <table>
+                  <thead>
+                    <tr><th>Date</th><th>Type</th><th>Product</th><th>Qty</th></tr>
+                  </thead>
+                  <tbody>
+                    {data.movements.slice().sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)).map(m => (
+                      <tr key={m.id}>
+                        <td>{new Date(m.timestamp).toLocaleDateString()}</td>
+                        <td><span className={`badge ${m.type === 'outward' ? 'danger' : ''}`}>{m.type}</span></td>
+                        <td>{m.productName}</td>
+                        <td>{m.quantity}</td>
+                      </tr>
+                    ))}
+                    {data.movements.length === 0 && <tr><td colSpan="4">No movements recorded.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
+      ) : (
+        <div className="delay-1 animate-fade-in">
+          <div className="grid-2">
+            <BarcodeScanner user={user} data={data} reload={loadData} onAddToCart={addToCart} />
+            <BillingCart cart={cart} updateCartQty={updateCartQty} onGenerate={handleGenerateBill} />
+          </div>
+        </div>
+      )}
+
+      {/* Bottom Nav */}
+      <div className="bottom-nav">
+        <button 
+          className={`bottom-nav-btn ${activeTab === 'bill' ? 'active' : ''}`}
+          onClick={() => setActiveTab('bill')}
+        >
+          <ShoppingCart size={24} />
+          Bill
+        </button>
+        <button 
+          className={`bottom-nav-btn ${activeTab === 'inventory' ? 'active' : ''}`}
+          onClick={() => setActiveTab('inventory')}
+        >
+          <Box size={24} />
+          Inventory
+        </button>
       </div>
     </div>
   );

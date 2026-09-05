@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { InventoryBackend } from '../../services/supabase';
 import { PlusCircle } from 'lucide-react';
 
-export default function InventoryManager({ user, data, reload }) {
+export default function InventoryManager({ user, data, reload, productToEdit, onEditComplete }) {
   const [editingId, setEditingId] = useState(null);
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
@@ -10,6 +10,18 @@ export default function InventoryManager({ user, data, reload }) {
   const [warehouse, setWarehouse] = useState('WH1');
   const [row, setRow] = useState('');
   const [bin, setBin] = useState('');
+
+  useEffect(() => {
+    if (productToEdit) {
+      setEditingId(productToEdit.id);
+      setName(productToEdit.name || '');
+      setPrice(productToEdit.price || '');
+      setQty(productToEdit.quantity || '');
+      setWarehouse(productToEdit.warehouse || 'WH1');
+      setRow(productToEdit.row || '');
+      setBin(productToEdit.bin || '');
+    }
+  }, [productToEdit]);
 
   const generateLocationDetails = (wh) => {
     const used = new Set(data.products.map(p => p.location));
@@ -69,6 +81,7 @@ export default function InventoryManager({ user, data, reload }) {
       });
       
       setName(''); setPrice(''); setQty(''); setRow(''); setBin(''); setEditingId(null);
+      if (onEditComplete) onEditComplete();
       await reload();
     } catch (err) {
       alert('Error saving product: ' + err.message);

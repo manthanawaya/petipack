@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Box, ShoppingCart } from 'lucide-react';
+import { Box, ShoppingCart, Edit } from 'lucide-react';
 
-export default function InventoryTable({ products, onAddToCart, reload }) {
+export default function InventoryTable({ products, onAddToCart, reload, onEdit }) {
   const [search, setSearch] = useState('');
 
   const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
@@ -45,6 +45,11 @@ export default function InventoryTable({ products, onAddToCart, reload }) {
                   <button className="icon-btn" onClick={() => onAddToCart(p.id)} title="Add to Cart">
                     <ShoppingCart size={16} /> Add
                   </button>
+                  {onEdit && (
+                    <button className="icon-btn secondary" onClick={() => onEdit(p)} title="Edit Product" style={{ marginLeft: '8px' }}>
+                      <Edit size={16} /> Edit
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
